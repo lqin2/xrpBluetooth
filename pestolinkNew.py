@@ -105,7 +105,7 @@ class PestoLinkAgent:
         self._ble.irq(self._irq)
         ((self._handle_tx, self._handle_rx),) = self._ble.gatts_register_services((_UART_SERVICE,))
         self._connections = set()
-        self._payload = advertising_payload(name=bytes(sliced_name, "utf-8"), services=[_UART_UUID])
+        self._payload = advertising_payload(name=bytes(sliced_name, "utf-8"), services=[_UART_UUID]) 
         self._byte_list = [1,127,127,127,127,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
         self._advertise()
         self.last_telemetry_ms = 0
@@ -145,14 +145,25 @@ class PestoLinkAgent:
             self._byte_list = _raw_byte_list
         else:
             self._byte_list = [1,127,127,127,127,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-            
+        
     def get_servo_angle(self):
-        if self._byte_list and len(self._byte_list) > 7:
-            angle = self._byte_list[7]
-            return max(0, min(180, angle))  # Clamp to 0–180
-        return 90  # Default angle
+        """
+        Extracts a 16-bit duty value from bytes 7 and 8 of the BLE report,
+        then converts it to a servo angle (0–180°).
+        """
+        if len(self._byte_list) < 9:
+            return 90  # Neutral angle fallback
 
+        high = self._byte_list[7]
+        low = self._byte_list[8]
+        duty = (high << 8) | low
 
+        # Clamp and convert to angle (0–180°)
+        duty = max(1000, min(9000, duty))
+        angle = int((duty - 1000) / (9000 - 1000) * 180)
+        return angle
+    
+    
     def get_raw_axis(self, axis_num):
         if axis_num < 0 or axis_num > 3 or self._byte_list == None:
             return 127
