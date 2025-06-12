@@ -12,4 +12,3 @@ while True:
     print(f"DUTY:{duty}")  # ✅ Sent to your PC via USB (COM8)
     time.sleep(0.5)
 
-
