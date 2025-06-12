@@ -1,10 +1,18 @@
-
+import sys
 import asyncio
 import serial
 import serial.tools.list_ports
 from bleak import BleakClient, BleakScanner
 from pynput import keyboard
 
+if sys.platform.startswith("win"):
+    try:
+        from asyncio.windows_events import WindowsSelectorEventLoopPolicy
+        asyncio.set_event_loop_policy(WindowsSelectorEventLoopPolicy())
+    except ImportError:
+        pass  # For older Python versions
+
+    
 UART_SERVICE_UUID = "27df26c5-83f4-4964-bae0-d7b7cb0a1f54"
 UART_RX_UUID = "452af57e-ad27-422c-88ae-76805ea641a9"
 
@@ -16,7 +24,7 @@ joystick_x = 127
 joystick_y = 127
 
 # Clamp function
-def clamp(val, min_val=0, max_val=180):
+def clamp(val, min_val=1000, max_val=9000):
     return max(min_val, min(max_val, val))
 
 # Arrow key handlers
@@ -50,9 +58,7 @@ def choose_com_port_gui():
         messagebox.showerror("Error", "No serial ports found.")
         exit(1)
 
-    if len(ports) == 1:
-        messagebox.showinfo("COM Port Selected", f"Only one port found: {ports[0].device}")
-        return ports[0].device
+    
 
     # List ports for user to select
     root = tk.Tk()
@@ -84,6 +90,7 @@ async def choose_xrp_ble_device():
     from bleak import BleakScanner
 
     # Scan for BLE devices
+   
     print("🔍 Scanning for XRProbot devices...")
     devices = await BleakScanner.discover(timeout=5.0)
     xrp_devices = [dev for dev in devices]
@@ -147,7 +154,8 @@ async def main():
                 report[0] = 0x01
                 report[1] = joystick_x
                 report[2] = joystick_y
-                report[7] = duty
+                report[7] = (duty >> 8) & 0xFF      # High byte
+                report[8] = duty & 0xFF             # Low byte
 
                 await client.write_gatt_char(UART_RX_UUID, report)
                 print(f"📤 Sent: DUTY:{duty} | JoyX:{joystick_x} JoyY:{joystick_y}")
