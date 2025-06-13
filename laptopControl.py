@@ -93,7 +93,7 @@ async def choose_xrp_ble_device():
    
     print("🔍 Scanning for XRProbot devices...")
     devices = await BleakScanner.discover(timeout=5.0)
-    xrp_devices = [dev for dev in devices]
+    xrp_devices = [dev for dev in devices if dev.name and dev.name.lower() != "none"]
     
     if not xrp_devices:
         messagebox.showerror("Not found", "No XRP robots found. Make sure they are on and advertising.")
