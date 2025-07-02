@@ -1,15 +1,11 @@
+
 from machine import Pin, PWM, ADC
 import uasyncio as asyncio
-import time
 from XRPLib.defaults import drivetrain
 from pestolink import PestoLinkAgent
 
 robot_name = "XRPbot2"
 pestolink = PestoLinkAgent(robot_name)
-
-# Flag to toggle between simulated voltage and real voltage reading
-USE_FAKE_VOLTAGE = True
-sim_voltage = 7.0  # Start at mid-range for fake voltage
 
 # Initialize PWM for servo on GPIO16
 servo_pwm = PWM(Pin(16))
@@ -28,27 +24,30 @@ def set_servo_angle(angle):
         servo_pwm.duty_u16(duty)
         last_angle = angle
 
+
 async def ble_loop():
-    global last_angle, sim_voltage
+    global last_angle
     prev_voltage = 0
     angle = 90  # Start neutral
 
     while True:
+        voltage = (ADC(Pin("BOARD_VIN_MEASURE")).read_u16()) / (1024 * 64 / 14)
+
         if pestolink.is_connected():
             throttle = -1 * pestolink.get_axis(1)
             rotation = -1 * pestolink.get_axis(0)
             drivetrain.arcade(throttle, rotation)
 
-            if USE_FAKE_VOLTAGE:
-                voltage = sim_voltage
-                sim_voltage += 0.05 if time.ticks_ms() % 2000 < 1000 else -0.05
-                sim_voltage = max(6.5, min(8.2, sim_voltage))  # Clamp fake voltage
-            else:
-                voltage = (ADC(Pin("BOARD_VIN_MEASURE")).read_u16()) / (1024 * 64 / 14)
-
             pestolink.telemetryPrintBatteryVoltage(voltage)
 
-            # Voltage-based claw control
+            # Claw angle from BLE
+            angle = pestolink.get_servo_angle()
+            set_servo_angle(angle)
+
+        else:
+            drivetrain.arcade(0, 0)
+
+            # Claw angle based on voltage change
             delta = voltage - prev_voltage
             if abs(delta) > 0.01:
                 angle += 2 if delta > 0 else -2
@@ -57,12 +56,7 @@ async def ble_loop():
 
             prev_voltage = voltage
 
-        else:
-            drivetrain.arcade(0, 0)
-            set_servo_angle(90)
-            servo_pwm.duty_u16(0)
-            last_angle = -1
-
         await asyncio.sleep(0.1)
+
 
 asyncio.run(ble_loop())
