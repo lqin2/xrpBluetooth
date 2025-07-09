@@ -134,7 +134,6 @@ async def choose_xrp_ble_device():
 
     # Scan for BLE devices
    
-    async def choose_xrp_ble_device():
     print("🔍 Scanning for XRProbot devices...")
     await asyncio.sleep(3.0)
     try:
